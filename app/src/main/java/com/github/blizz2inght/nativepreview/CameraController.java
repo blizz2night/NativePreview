@@ -4,7 +4,9 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
+import android.graphics.YuvImage;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -23,8 +25,9 @@ import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,7 +54,7 @@ public class CameraController {
 
     private CameraCaptureSession mSession;
     private CaptureRequest.Builder mRequestBuilder;
-    private Surface mSurface;
+//    private Surface mSurface;
     private int mSensorOrientation = 90;
     private Size mPreviewSize;
     private Size mYuvSize;
@@ -125,10 +128,8 @@ public class CameraController {
                         mCameraDevice = null;
                     }
                     Log.i(TAG, "handleMessage: close device---");
-
-                    if (mSurface != null) {
-                        mSurface.release();
-                        mSurface = null;
+                    if (mYuvReader != null) {
+                        mYuvReader.close();
                     }
                     break;
             }
@@ -141,27 +142,20 @@ public class CameraController {
         public void onOpened(@NonNull CameraDevice camera) {
             Log.i(TAG, "onOpened---: "+camera);
             mCameraDevice = camera;
-            if (mSurface != null) {
-                try {
-                    List<Surface> surfaces = new ArrayList<>();
-                    surfaces.add(mSurface);
-                    mRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-                    mRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                    mRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
-                    mRequestBuilder.addTarget(mSurface);
-
-                    if (mSupportedYuvSizes != null && mSupportedYuvSizes.length > 0) {
-                        mYuvSize = getNearestSize(mSupportedYuvSizes, mPreviewSize);
-                        mYuvReader = ImageReader.newInstance(mYuvSize.getWidth(), mYuvSize.getHeight(), ImageFormat.YUV_420_888, 2);
-                        mYuvReader.setOnImageAvailableListener(mYuvListener, null);
-                        final Surface surface = mYuvReader.getSurface();
-                        mRequestBuilder.addTarget(surface);
-                        surfaces.add(surface);
-                    }
-                    mCameraDevice.createCaptureSession(surfaces, mSessionCallback, null);
-                } catch (CameraAccessException e) {
-                    Log.e(TAG, "onOpened: ", e);
-                }
+            try {
+                List<Surface> surfaces = new ArrayList<>();
+                mYuvSize = getNearestSize(mSupportedYuvSizes, mPreviewSize);
+                mYuvReader = ImageReader.newInstance(mYuvSize.getWidth(), mYuvSize.getHeight(), ImageFormat.YUV_420_888, 2);
+                mYuvReader.setOnImageAvailableListener(mYuvListener, null);
+                final Surface surface = mYuvReader.getSurface();
+                surfaces.add(surface);
+                mRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                mRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                mRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+                mRequestBuilder.addTarget(surface);
+                mCameraDevice.createCaptureSession(surfaces, mSessionCallback, null);
+            } catch (CameraAccessException e) {
+                Log.e(TAG, "onOpened: ", e);
             }
         }
 
@@ -227,10 +221,10 @@ public class CameraController {
         mHandler.sendEmptyMessage(CLOSE_CAMERA);
     }
 
-    public void open(Surface surface, SurfaceTexture yuvTexture) {
-        mSurface = surface;
+    public void open(SurfaceTexture yuvTexture) {
         mYuvTexture = yuvTexture;
-        mHandler.obtainMessage(OPEN_CAMERA, surface).sendToTarget();
+        Utils.init(mYuvTexture, mPreviewSize.getWidth(), mPreviewSize.getHeight());
+        mHandler.obtainMessage(OPEN_CAMERA).sendToTarget();
     }
 
 
@@ -242,18 +236,15 @@ public class CameraController {
         @Override
         public void onImageAvailable(ImageReader reader) {
             final Image image = reader.acquireLatestImage();
-            Log.i(TAG, "onImageAvailable: " + image);
             if (image != null) {
                 int width = image.getWidth();
                 int height = image.getHeight();
-//                int size = (width * height * 3) >> 1;
-//                byte[] dst = new byte[size];
-//                Utils.imageToNV21(image, dst);
-                Image.Plane plane = image.getPlanes()[0];
-                int size = (plane.getRowStride() * height * 3) >> 1;
-                byte[] dst = new byte[size];
-                Utils.imageToNV21withStride(image, dst);
-                Utils.process(dst,width,height,mYuvTexture);
+                Log.i(TAG, "onImageAvailable: " + width);
+                Image.Plane[] planes = image.getPlanes();
+                for (int i = 0; i < planes.length; i++) {
+                    Log.i(TAG, "onImageAvailable: plane i="+i+", rowStride="+planes[i].getRowStride());
+                }
+                Utils.processBuffer(image.getPlanes()[0].getBuffer(), width, height, mYuvTexture);
                 image.close();
             }
         }

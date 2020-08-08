@@ -2,7 +2,9 @@ package com.github.blizz2inght.nativepreview;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
+import android.graphics.YuvImage;
 import android.media.Image;
 import android.opengl.GLES20;
 import android.util.Log;
@@ -208,7 +210,8 @@ public class Utils {
             int rows = imageHeight / pixelStride;
             // Copy whole plane from buffer into |data| at once.
             int length = rowStride * rows;
-            Log.i(TAG, "imageToNV21withStride: channel "+channel+", rowStride" + rowStride+", width="+imageWidth);
+            Log.i(TAG, "imageToNV21withStride: channel " + channel + ", rowStride=" + rowStride + ", width=" + imageWidth
+                    + ", pixelStride=" + pixelStride);
             // plane[2]的buffer比实际图像VU小1byte,读buffer实际大小
             buffer.get(dst, offset, buffer.remaining());
             offset += length;
@@ -216,7 +219,41 @@ public class Utils {
         return true;
     }
 
-    native static void init(SurfaceTexture yuvTexture);
+    private static void dumpYUV(byte[] src, long name, File dir) {
+        File yuv = new File(dir, "" + name + ".yuv");
+        try {
+            if (!yuv.exists()) {
+                yuv.createNewFile();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        try(FileOutputStream fout = new FileOutputStream(yuv)){
+            fout.write(src, 0, src.length);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
-    native static void process(byte[] dst, int width, int height, SurfaceTexture yuvTexture);
+    private static void dumpYUVToJpeg(YuvImage yuvImage, long name, File dir) {
+        File jpeg = new File(dir, "" + name + ".jpeg");
+//                jpeg.mkdirs();
+        try {
+            jpeg.createNewFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        try(FileOutputStream fout = new FileOutputStream(jpeg)){
+            yuvImage.compressToJpeg(new Rect(0, 0, yuvImage.getWidth(), yuvImage.getHeight()), 90, fout);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    synchronized native static void init(SurfaceTexture yuvTexture, int width, int height);
+
+    synchronized native static void process(byte[] dst, int width, int height, SurfaceTexture yuvTexture);
+
+    synchronized native static void uninit();
+
+    synchronized native static void processBuffer(ByteBuffer buffer, int width, int height, SurfaceTexture yuvTexture);
 }

@@ -1,2 +1,4 @@
 rootProject.name='NativePreview'
 include ':app'
+include ':libyuv'
+include ':libjpeg'

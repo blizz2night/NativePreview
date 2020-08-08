@@ -41,13 +41,9 @@ public class MainActivity extends AppCompatActivity {
     private String[] mPerms;
 
     private GLSurfaceView mPreview;
-    private SurfaceTexture mSurfaceTexture;
     private CameraController mCameraController;
 
-    private Surface mSurface;
-    private int mPreviewTex;
     private int mMaxTextureSize;
-    //    private float[] mMVPMatrix = new float[16];
     private DisplayMetrics mDisplayMetrics = new DisplayMetrics();
     //每一行分别是顶点和纹理坐标x, y, s, t
     private float[] mVertexArr = new float[]{
@@ -62,7 +58,6 @@ public class MainActivity extends AppCompatActivity {
     private int a_TexCoord;
     private int u_TextureUnit;
     private int u_TextureMatrix;
-    //    private int u_MVPMatrix;
     private float[] mTextureMatrix = new float[16];
     private FloatBuffer mVertexBuffer;
 
@@ -130,9 +125,11 @@ public class MainActivity extends AppCompatActivity {
         mPreview.setRenderer(new MyRender());
         mPreview.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
         getWindowManager().getDefaultDisplay().getRealMetrics(mDisplayMetrics);
+        Log.i(TAG, "init: " + mDisplayMetrics);
         mSW = mDisplayMetrics.widthPixels;
         mSH = mDisplayMetrics.heightPixels;
         mPreviewSize = mCameraController.filterPreviewSize(mSW,mSH);
+        Log.i(TAG, "init: mPreviewSize= " + mPreviewSize);
     }
 
 
@@ -180,17 +177,10 @@ public class MainActivity extends AppCompatActivity {
             GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
             intBuffer.clear();
 
-            int[] textures = new int[2];
+            int[] textures = new int[1];
             GLES20.glGenTextures(textures.length, textures, 0);
-            //外部纹理mPreviewTex用于接收预览
-            mPreviewTex = textures[0];
-            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mPreviewTex);
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T,GLES20.GL_CLAMP_TO_EDGE );
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S,GLES20.GL_CLAMP_TO_EDGE );
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER,GLES20.GL_LINEAR);
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER,GLES20.GL_LINEAR);
 
-            mYuvTex = textures[1];
+            mYuvTex = textures[0];
             GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mYuvTex);
             GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T,GLES20.GL_CLAMP_TO_EDGE );
             GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S,GLES20.GL_CLAMP_TO_EDGE );
@@ -204,15 +194,11 @@ public class MainActivity extends AppCompatActivity {
             u_TextureMatrix = GLES20.glGetUniformLocation(mPreviewProgram, "u_TextureMatrix");
             u_TextureUnit = GLES20.glGetUniformLocation(mPreviewProgram, "u_TextureUnit");
 
-            mSurfaceTexture = new SurfaceTexture(mPreviewTex);
-            mSurfaceTexture.setDefaultBufferSize(mPreview.getHeight(), mPreview.getWidth());
-            mSurfaceTexture.setOnFrameAvailableListener(mPreviewDataCallback, null);
-            Surface surface = new Surface(mSurfaceTexture);
-
             mYuvTexture = new SurfaceTexture(mYuvTex);
             mYuvTexture.setDefaultBufferSize(mPreview.getHeight(), mPreview.getWidth());
             mYuvTexture.setOnFrameAvailableListener(mYuvPreviewDataCallback, null);
-            mCameraController.open(surface, mYuvTexture);
+
+            mCameraController.open(mYuvTexture);
         }
 
         @Override
@@ -227,10 +213,9 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onDrawFrame(GL10 gl) {
             GLES20.glClearColor(0, 0, 0, 1);
-            mSurfaceTexture.updateTexImage();
             mYuvTexture.updateTexImage();
             Matrix.setIdentityM(mTextureMatrix, /* smOffset= */ 0);
-            mSurfaceTexture.getTransformMatrix(mTextureMatrix);
+            mYuvTexture.getTransformMatrix(mTextureMatrix);
             GLES20.glUseProgram(mPreviewProgram);
 
             GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, mVbo);
@@ -245,7 +230,6 @@ public class MainActivity extends AppCompatActivity {
                     u_TextureMatrix, /* count= */ 1, /* transpose= */ false, mTextureMatrix, /* offset= */ 0);
 
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-//            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mPreviewTex);
             GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mYuvTex);
             GLES20.glUniform1i(u_TextureUnit, /* x= */ 0);
 
@@ -255,17 +239,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private SurfaceTexture.OnFrameAvailableListener mPreviewDataCallback = new SurfaceTexture.OnFrameAvailableListener() {
-        @Override
-        public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-//            mPreview.requestRender();
-        }
-    };
-
     @Override
     protected void onPause() {
         super.onPause();
         mPreview.onPause();
+        Utils.uninit();
         mCameraController.close();
     }
 
@@ -278,7 +256,6 @@ public class MainActivity extends AppCompatActivity {
     private SurfaceTexture.OnFrameAvailableListener mYuvPreviewDataCallback = new SurfaceTexture.OnFrameAvailableListener() {
         @Override
         public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-        Log.i(TAG, "mYuvPreviewDataCallback onFrameAvailable: ");
         mPreview.requestRender();
         }
     };

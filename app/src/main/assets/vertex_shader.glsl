@@ -1,6 +1,5 @@
 attribute vec4 a_Position;
 attribute vec4 a_TexCoord;
-uniform mat4 u_MVPMatrix;
 uniform mat4 u_TextureMatrix;
 varying vec2 v_TexCoord;
 
