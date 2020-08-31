@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.graphics.YuvImage;
+import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.opengl.GLES20;
 import android.util.Log;
@@ -256,4 +257,6 @@ public class Utils {
     synchronized native static void uninit();
 
     synchronized native static void processBuffer(ByteBuffer buffer, int width, int height, SurfaceTexture yuvTexture);
+
+    synchronized native static void processHardwareBuffer(HardwareBuffer hardwareBuffer, int width, int height, SurfaceTexture yuvTexture);
 }

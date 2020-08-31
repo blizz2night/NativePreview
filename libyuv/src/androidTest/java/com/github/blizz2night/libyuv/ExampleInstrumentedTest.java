@@ -40,12 +40,29 @@ public class ExampleInstrumentedTest {
         assertEquals("com.github.blizz2night.libyuv.test", appContext.getPackageName());
         Bitmap bitmap = BitmapFactory.decodeResource(appContext.getResources(),R.drawable.photo);
         int byteCount = bitmap.getByteCount();
+        //         * int color = (A & 0xff) << 24 | (B & 0xff) << 16 | (G & 0xff) << 8 | (R & 0xff);
         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(byteCount).order(ByteOrder.nativeOrder());
         bitmap.copyPixelsToBuffer(byteBuffer);
         byte[] bytes = YuvUtils.argbBufferToI420(byteBuffer, bitmap.getWidth(), bitmap.getHeight());
         File externalFilesDir = appContext.getExternalMediaDirs()[0];
         dumpYUV(bytes, "" + bitmap.getWidth() + "x" + bitmap.getHeight() + ".i420", externalFilesDir);
     }
+
+    @Test
+    public void testToI420() {
+        // Context of the app under test.
+        Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+
+        assertEquals("com.github.blizz2night.libyuv.test", appContext.getPackageName());
+        Bitmap bitmap = BitmapFactory.decodeResource(appContext.getResources(),R.drawable.photo);
+        int byteCount = bitmap.getByteCount();
+        ByteBuffer byteBuffer = ByteBuffer.allocateDirect(byteCount).order(ByteOrder.nativeOrder());
+        bitmap.copyPixelsToBuffer(byteBuffer);
+        byte[] bytes = YuvUtils.argbBufferToI420(byteBuffer, bitmap.getWidth(), bitmap.getHeight());
+        File externalFilesDir = appContext.getExternalMediaDirs()[0];
+        dumpYUV(bytes, "" + bitmap.getWidth() + "x" + bitmap.getHeight() + ".i420", externalFilesDir);
+    }
+
 
     private static void dumpYUV(byte[] src, String name, File dir) {
         File yuv = new File(dir, name);

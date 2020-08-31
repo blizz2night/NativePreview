@@ -7,6 +7,7 @@ import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.graphics.YuvImage;
+import android.hardware.HardwareBuffer;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -239,12 +240,11 @@ public class CameraController {
             if (image != null) {
                 int width = image.getWidth();
                 int height = image.getHeight();
-                Log.i(TAG, "onImageAvailable: " + width);
-                Image.Plane[] planes = image.getPlanes();
-                for (int i = 0; i < planes.length; i++) {
-                    Log.i(TAG, "onImageAvailable: plane i="+i+", rowStride="+planes[i].getRowStride());
-                }
-                Utils.processBuffer(image.getPlanes()[0].getBuffer(), width, height, mYuvTexture);
+                HardwareBuffer hardwareBuffer = image.getHardwareBuffer();
+//                Log.i(TAG, "onImageAvailable: " + hardwareBuffer);
+//                Utils.processBuffer(image.getPlanes()[0].getBuffer(), width, height, mYuvTexture);
+                Utils.processHardwareBuffer(hardwareBuffer, width, height, mYuvTexture);
+
                 image.close();
             }
         }
