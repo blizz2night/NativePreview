@@ -1,21 +1,45 @@
 #include <jni.h>
-#include <string>
-#ifdef __arm__
-#include "libjpeg-turbo/armeabi-v7a/jconfig.h"
-#elif __aarch64__
-#include "libjpeg-turbo/arm64-v8a/jconfig.h"
-#endif
-#include "libjpeg-turbo/jpeglib.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include "libjpeg-turbo/turbojpeg.h"
 
-extern "C" JNIEXPORT void JNICALL
+
+#define DEFAULT_SUBSAMP  TJSAMP_444
+#define DEFAULT_QUALITY  95
+
+const char *subsampName[TJ_NUMSAMP] = {
+        "4:4:4", "4:2:2", "4:2:0", "Grayscale", "4:4:0", "4:1:1"
+};
+
+const char *colorspaceName[TJ_NUMCS] = {
+        "RGB", "YCbCr", "GRAY", "CMYK", "YCCK"
+};
+
+tjscalingfactor *scalingFactors = NULL;
+int numScalingFactors = 0;
+
+extern "C" JNIEXPORT jobject JNICALL
 Java_com_github_blizz2night_libjpeg_JpegUtils_compressNV21(
         JNIEnv* env,
-        jobject /* this */, jbyteArray nv21, jint width, jint height) {
-    struct jpeg_compress_struct cinfo;
-    struct jpeg_error_mgr jerr;
-    cinfo.err = jpeg_std_error(&jerr);
-    jpeg_create_compress(&cinfo);
-    // 创建代表压缩的结构体
-
+        jclass clazz, jbyteArray yuv420sp, jint width, jint height) {
+    jbyte *buffer = env->GetByteArrayElements(yuv420sp, 0);
+    const unsigned char * imgBuf = reinterpret_cast<const unsigned char *>(buffer);
+    jsize length = env->GetArrayLength(yuv420sp);
+    size_t count = sizeof(jbyte) * length;
+//    unsigned char *imgBuf = new u_char[count];
+//    memcpy(imgBuf,buffer,count);
+    int flags = 0;
+    unsigned char *jpegBuf = NULL;
+    unsigned long jpegSize = 0;
+    tjhandle tjInstance = tjInitCompress();
+    tjCompressFromYUV(tjInstance,imgBuf,width,1,height,TJSAMP_420,&jpegBuf,&jpegSize,95,flags);
+    tjDestroy(tjInstance);
+    tjInstance = NULL;
+    jobject directByteBuffer = env->NewDirectByteBuffer(jpegBuf, jpegSize);
+    jpegBuf = NULL;
+    return directByteBuffer;
+//    tjFree(jpegBuf);  jpegBuf = NULL;
 
 }

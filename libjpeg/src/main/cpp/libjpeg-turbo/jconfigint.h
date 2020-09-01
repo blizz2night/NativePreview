@@ -14,7 +14,11 @@
 #define VERSION  "2.0.4"
 
 /* The size of `size_t', as computed by sizeof. */
+#ifdef __arm__
+#define SIZEOF_SIZE_T  4
+#elif __aarch64__
 #define SIZEOF_SIZE_T  8
+#endif
 
 /* Define if your compiler has __builtin_ctzl() and sizeof(unsigned long) == sizeof(size_t). */
 #define HAVE_BUILTIN_CTZL

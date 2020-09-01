@@ -10,13 +10,12 @@ cmake_minimum_required(VERSION 3.4.1)
 # You can define multiple libraries, and CMake builds them for you.
 # Gradle automatically packages shared libraries with your APK.
 #abiFilters "armeabi", "armeabi-v7a" , "arm64-v8a", "x86", "x86_64", "mips", "mips64"
-message(WARNING "cmake libjpeg module")
+string(REGEX MATCH "[0-9]+$" minSdk ${ANDROID_PLATFORM})
+message(WARNING "build libjpeg abi=${ANDROID_ABI}, minSdk=${minSdk}")
 if(${ANDROID_ABI} STREQUAL "arm64-v8a") #针对不同 ABI 设置不同的编译代码 或 if(${ANDROID_ABI} STREQUAL "areambi")
-    message(WARNING build ${ANDROID_ABI}.so)
-    SET(CMAKE_ASM_FLAGS --target=aarch64-linux-android${ANDROID_PLATFORM})
+    SET(CMAKE_ASM_FLAGS --target=aarch64-linux-android${minSdk})
 elseif(${ANDROID_ABI} STREQUAL  "armeabi-v7a")
-    message(WARNING build ${ANDROID_ABI}.so)
-    SET(CMAKE_ASM_FLAGS --target=arm-linux-android${ANDROID_PLATFORM})
+    SET(CMAKE_ASM_FLAGS --target=arm-linux-android${minSdk})
 endif()
 
 include_directories(libjpeg-turbo)
@@ -30,8 +29,6 @@ add_library( # Sets the name of the library.
 
              # Provides a relative path to your source file(s).
         jpeg_utils_jni.cpp)
-
-include_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libjpeg-turbo)
 
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by
@@ -54,6 +51,8 @@ target_link_libraries( # Specifies the target library.
                     jpeg_utils_jni
 
                     jpeg
+
+                    turbojpeg
                        # Links the target library to the log library
                        # included in the NDK.
                        ${log-lib} )
